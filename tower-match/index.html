@@ -1,0 +1,1123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tower Climb Matchmaking Simulator</title>
+<style>
+  :root {
+    --bg: #0f1419;
+    --panel: #1a2332;
+    --panel2: #243044;
+    --border: #2d3a4f;
+    --accent: #3b82f6;
+    --accent2: #22c55e;
+    --danger: #ef4444;
+    --warn: #f59e0b;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  header {
+    background: linear-gradient(135deg, #1e293b, #0f172a);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .logo {
+    font-size: 1.15rem;
+    font-weight: 700;
+    background: linear-gradient(90deg, #60a5fa, #34d399);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .clock-box {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--panel);
+    padding: 5px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+  .clock { font-variant-numeric: tabular-nums; font-size: 1.05rem; font-weight: 600; }
+  .metronome {
+    width: 11px; height: 11px; border-radius: 50%;
+    background: var(--accent2);
+    animation: pulse 1s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.4); opacity: 0.5; }
+  }
+  .params {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    flex: 1;
+  }
+  .param-group {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.78rem;
+  }
+  .param-group label { color: var(--muted); white-space: nowrap; }
+  .param-group input {
+    width: 46px;
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 2px 5px;
+    border-radius: 4px;
+    font-size: 0.82rem;
+  }
+  .controls { display: flex; gap: 6px; flex-wrap: wrap; }
+  button {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.8rem;
+    transition: all 0.15s;
+  }
+  button:hover { filter: brightness(1.15); transform: translateY(-1px); }
+  button.secondary { background: var(--panel2); border: 1px solid var(--border); }
+  button.danger { background: var(--danger); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+  button.success { background: #059669; }
+
+  main {
+    display: grid;
+    grid-template-columns: 270px 1fr 360px;
+    gap: 12px;
+    padding: 12px 16px;
+    min-height: calc(100vh - 380px);
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .panel-header {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--panel2);
+  }
+  .panel-header h2 { font-size: 0.95rem; font-weight: 600; }
+  .badge {
+    background: var(--accent);
+    color: white;
+    font-size: 0.72rem;
+    padding: 2px 7px;
+    border-radius: 999px;
+    font-weight: 600;
+  }
+  .panel-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px;
+    max-height: 55vh;
+  }
+  .panel-body::-webkit-scrollbar { width: 5px; }
+  .panel-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  .gen-controls { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+  .gen-row { display: flex; gap: 6px; }
+  .gen-row button { flex: 1; }
+  select, input[type="number"] {
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 5px 7px;
+    border-radius: 5px;
+    font-size: 0.8rem;
+  }
+  .player-card {
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 8px;
+    margin-bottom: 6px;
+    transition: all 0.25s ease;
+    animation: slideIn 0.3s ease;
+  }
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .player-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 3px;
+  }
+  .player-name { font-weight: 600; font-size: 0.85rem; }
+  .elo { font-variant-numeric: tabular-nums; font-weight: 700; color: #a78bfa; font-size: 0.85rem; }
+  .tags { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 4px; }
+  .tag {
+    font-size: 0.65rem;
+    padding: 1px 5px;
+    border-radius: 3px;
+    background: #334155;
+    color: var(--muted);
+  }
+  .tag.role-tank { background: #1e3a5f; color: #93c5fd; }
+  .tag.role-dps { background: #4c1d1d; color: #fca5a5; }
+  .tag.role-healer { background: #14532d; color: #86efac; }
+  .tag.region { background: #312e81; color: #a5b4fc; }
+  .tag.class { background: #422006; color: #fcd34d; }
+  .stats-mini { font-size: 0.65rem; color: var(--muted); margin-top: 3px; }
+  .queue-time { font-size: 0.7rem; color: var(--warn); font-variant-numeric: tabular-nums; }
+  .patience-low { color: #f87171; }
+
+  .match-group {
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 10px;
+    overflow: hidden;
+    animation: matchPop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  @keyframes matchPop {
+    from { opacity: 0; transform: scale(0.93); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  .match-header {
+    background: linear-gradient(90deg, #1e3a5f, #14532d);
+    padding: 7px 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.8rem;
+  }
+  .match-stats {
+    display: flex;
+    gap: 10px;
+    font-size: 0.7rem;
+    color: #94a3b8;
+    padding: 5px 10px;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .match-players {
+    padding: 6px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 5px;
+  }
+  .match-player {
+    background: var(--bg);
+    border-radius: 5px;
+    padding: 5px 7px;
+    font-size: 0.75rem;
+  }
+  .empty { text-align: center; color: var(--muted); padding: 30px 16px; font-size: 0.85rem; }
+  .quality-high { color: #4ade80; }
+  .quality-med { color: #fbbf24; }
+  .quality-low { color: #f87171; }
+
+  .info-panel {
+    margin: 0 16px 16px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 20px;
+  }
+  .info-panel h2 { font-size: 1.05rem; margin-bottom: 10px; color: #93c5fd; }
+  .info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 14px;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    color: var(--muted);
+  }
+  .info-grid h3 { color: var(--text); font-size: 0.85rem; margin-bottom: 5px; }
+  .info-grid ul { padding-left: 16px; }
+  .info-grid li { margin-bottom: 3px; }
+  .bias-bar {
+    display: flex;
+    height: 16px;
+    border-radius: 4px;
+    overflow: hidden;
+    margin: 6px 0 4px;
+    font-size: 0.65rem;
+    font-weight: 600;
+  }
+  .bias-dps { background: #7f1d1d; color: #fca5a5; flex: 68; display:flex; align-items:center; justify-content:center; }
+  .bias-heal { background: #14532d; color: #86efac; flex: 20; display:flex; align-items:center; justify-content:center; }
+  .bias-tank { background: #1e3a5f; color: #93c5fd; flex: 12; display:flex; align-items:center; justify-content:center; }
+
+  .stats-bar {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    font-size: 0.78rem;
+    color: var(--muted);
+    padding: 4px 0;
+  }
+  .stats-bar strong { color: var(--text); }
+
+  @media (max-width: 1100px) {
+    main { grid-template-columns: 1fr; }
+    .panel-body { max-height: 360px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">🏰 Tower Climb Matchmaking</div>
+  <div class="clock-box">
+    <div class="metronome"></div>
+    <div class="clock" id="clock">00:00:00</div>
+    <span style="color:var(--muted);font-size:0.75rem">1s tick</span>
+  </div>
+  <div class="params">
+    <div class="param-group">
+      <label>Party min/max</label>
+      <input type="number" id="partyMin" value="5" min="3" max="12">
+      <input type="number" id="partyMax" value="12" min="5" max="12">
+    </div>
+    <div class="param-group">
+      <label>Tank min/ideal</label>
+      <input type="number" id="tankMin" value="0" min="0" max="4">
+      <input type="number" id="tankIdeal" value="2" min="0" max="4">
+    </div>
+    <div class="param-group">
+      <label>Healer min/ideal</label>
+      <input type="number" id="healMin" value="0" min="0" max="4">
+      <input type="number" id="healIdeal" value="2" min="0" max="4">
+    </div>
+    <div class="param-group">
+      <label>DPS min/ideal</label>
+      <input type="number" id="dpsMin" value="2" min="0" max="10">
+      <input type="number" id="dpsIdeal" value="6" min="0" max="10">
+    </div>
+    <div class="param-group">
+      <label>Level Δ ideal/max</label>
+      <input type="number" id="lvlIdeal" value="10" min="0">
+      <input type="number" id="lvlMax" value="40" min="0">
+    </div>
+    <div class="param-group">
+      <label>ELO Δ ideal/max</label>
+      <input type="number" id="eloIdeal" value="150" min="0">
+      <input type="number" id="eloMax" value="600" min="0">
+    </div>
+    <div class="param-group">
+      <label>Ideal wait (s)</label>
+      <input type="number" id="idealWait" value="15" min="1">
+    </div>
+    <div class="param-group">
+      <label>YOLO wait (s)</label>
+      <input type="number" id="yoloWait" value="300" min="30">
+    </div>
+    <div class="param-group">
+      <label>Cross-play after (s)</label>
+      <input type="number" id="crossPlayAfter" value="90" min="0">
+    </div>
+  </div>
+  <div class="controls">
+    <button id="btnStart">▶ Start</button>
+    <button id="btnPause" class="secondary" disabled>⏸ Pause</button>
+    <button id="btnAuto" class="success">Auto: OFF</button>
+    <button id="btnClear" class="danger">Clear</button>
+  </div>
+</header>
+
+<div class="stats-bar" style="padding: 6px 16px; background: #111827; border-bottom: 1px solid var(--border);">
+  <span>Queue: <strong id="statQueue">0</strong></span>
+  <span>Matches: <strong id="statMatches">0</strong></span>
+  <span>Abandoned: <strong id="statAbandoned">0</strong></span>
+  <span>Auto rate: <strong id="statAuto">off</strong></span>
+  <span>Region pops: <strong id="statPops">—</strong></span>
+</div>
+
+<main>
+  <div class="panel">
+    <div class="panel-header"><h2>Player Generator</h2></div>
+    <div class="panel-body">
+      <div class="gen-controls">
+        <div class="gen-row">
+          <button id="btnAdd1">+1 Solo</button>
+          <button id="btnAdd5">+5 Solo</button>
+        </div>
+        <div class="gen-row">
+          <button id="btnAddPremade2">+Premade 2</button>
+          <button id="btnAddPremade3">+Premade 3</button>
+        </div>
+        <div class="gen-row">
+          <button id="btnAddPremade4">+Premade 4</button>
+          <button id="btnFlood" class="secondary">Flood 20</button>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;margin-top:2px">
+          <label style="font-size:0.75rem;color:var(--muted)">Region bias:</label>
+          <select id="regionBias">
+            <option value="random">Random (pop-weighted)</option>
+            <option value="NA">NA</option>
+            <option value="EU">EU</option>
+            <option value="SA">SA</option>
+            <option value="SEA">SEA</option>
+            <option value="OCE">OCE</option>
+          </select>
+        </div>
+      </div>
+      <div style="font-size:0.75rem;color:var(--muted)">
+        <strong style="color:#93c5fd">Role bias</strong> DPS≫Healer>Tank<br>
+        <strong style="color:#86efac">Tanks</strong> treated as scarce resources<br>
+        <strong style="color:#fbbf24">Patience</strong> + floor stats per player
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header">
+      <h2>Server Queue</h2>
+      <span class="badge" id="queueCount">0</span>
+    </div>
+    <div class="panel-body" id="queueList">
+      <div class="empty">Queue is empty. Generate players or enable Auto.</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header">
+      <h2>Produced Matches</h2>
+      <span class="badge" id="matchCount">0</span>
+    </div>
+    <div class="panel-body" id="matchList">
+      <div class="empty">No matches yet.</div>
+    </div>
+  </div>
+</main>
+
+<div class="info-panel">
+  <h2>How the Matchmaking System Works</h2>
+  <div class="info-grid">
+    <div>
+      <h3>Player Role Preferences</h3>
+      <p>Real-world inspired (WoW / LoL / Dota): most players prefer dealing damage.</p>
+      <div class="bias-bar">
+        <div class="bias-dps">DPS ~68%</div>
+        <div class="bias-heal">Heal ~20%</div>
+        <div class="bias-tank">Tank ~12%</div>
+      </div>
+      <p>Classes still constrain roles. Premades get a light tank/healer core then fill with bias.</p>
+    </div>
+    <div>
+      <h3>Scarce Resources (Tanks &amp; Healers)</h3>
+      <ul>
+        <li>Tanks are the rarest and most valuable resource.</li>
+        <li>Early (low tolerance): system is conservative — prefers ideal 2 tanks / 2 healers and will not “waste” them on marginal groups if better options exist.</li>
+        <li>DPS are spent freely according to availability.</li>
+        <li>As wait grows, mins relax toward the configured floor (can be 0).</li>
+        <li>At full YOLO a party can form with 0 tanks and/or 0 healers so nobody is left waiting forever.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Patience &amp; Retention (~95%)</h3>
+      <ul>
+        <li>Every player has a personal <strong>patience</strong> (seconds).</li>
+        <li>Distribution is set so that ~95% will still be waiting at the default YOLO of 300 s.</li>
+        <li>If wait exceeds patience the player abandons the queue (tracked in the stats bar).</li>
+        <li>Goal of the YOLO curve: zero players left waiting past the frustration threshold while still making a good-faith attempt at quality first.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Tower Floors (101 total)</h3>
+      <ul>
+        <li>Each player has an estimated average / median floor reached.</li>
+        <li>Higher floors = harder; floor 101 has the best loot.</li>
+        <li>Design pressure: parties often kick “dead weight” around floor 100 to maximise clear chance / loot.</li>
+        <li>Shown on player cards for future behaviour simulation.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Auto Population &amp; Regions</h3>
+      <ul>
+        <li>Each region has a live population (roughly 250–6000, centred ~3000).</li>
+        <li>~1–2 % of a region’s population is “active” (queueing or in match) at any time.</li>
+        <li>Auto mode injects new solo / small premade traffic proportional to region size.</li>
+        <li><strong>Cross-play</strong> (after configurable delay): OCE↔SEA and NA↔SA become eligible (simulates extra loading / technical friction). Other region pairs stay strict.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Time-based Relaxation</h3>
+      <ul>
+        <li>0 → Ideal Wait: tight ELO/level, ideal roles, preferred size, same region only.</li>
+        <li>Ideal → YOLO: linear widening of gaps, role mins drop (can reach 0), size can shrink, cross-play opens.</li>
+        <li>At YOLO: form any legal party that meets absolute mins so the queue drains.</li>
+        <li>Oldest players/groups are always preferred as seeds. Premades stay together.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===================== CONFIG & STATE =====================
+const REGIONS = ['NA', 'SA', 'EU', 'SEA', 'OCE'];
+const CROSS_PLAY_PAIRS = {
+  NA: ['SA'], SA: ['NA'],
+  OCE: ['SEA'], SEA: ['OCE']
+  // EU stays alone for now
+};
+const CLASSES = {
+  warrior: ['tank', 'dps'],
+  ranger:  ['dps'],
+  paladin: ['tank', 'dps', 'healer'],
+  priest:  ['healer', 'dps']
+};
+const GUILD_NAMES = [
+  'Iron Legion', 'Shadow Covenant', 'Dawnbreakers', 'Void Walkers',
+  'Crystal Guardians', 'Storm Riders', 'Eternal Flame', 'Silent Blades',
+  'Moonlit Order', 'Ashen Throne', 'Wild Hunt', 'Celestial Path'
+];
+const ROLE_WEIGHTS = { dps: 68, healer: 20, tank: 12 };
+
+// Region populations (players). Vary over time a little.
+let regionPop = {
+  NA: 3200, SA: 1800, EU: 4100, SEA: 2900, OCE: 950
+};
+
+let simRunning = false;
+let autoSpawn = false;
+let simTime = 0;
+let nextPlayerId = 1;
+let nextMatchId = 1;
+let queue = [];
+let matches = [];
+let abandonedCount = 0;
+let tickInterval = null;
+
+// ===================== UTILITIES =====================
+function rand(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+function randf(min, max) { return Math.random() * (max - min) + min; }
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+
+function weightedPick(weights) {
+  const entries = Object.entries(weights);
+  const total = entries.reduce((s, [, w]) => s + w, 0);
+  let r = Math.random() * total;
+  for (const [key, w] of entries) {
+    r -= w;
+    if (r <= 0) return key;
+  }
+  return entries[entries.length - 1][0];
+}
+
+function formatTime(sec) {
+  const h = Math.floor(sec / 3600).toString().padStart(2, '0');
+  const m = Math.floor((sec % 3600) / 60).toString().padStart(2, '0');
+  const s = (sec % 60).toString().padStart(2, '0');
+  return `${h}:${m}:${s}`;
+}
+function formatElapsed(sec) {
+  if (sec < 60) return `${sec}s`;
+  return `${Math.floor(sec / 60)}m ${sec % 60}s`;
+}
+
+// Patience distribution: ~95% still present at 300 s
+// Most players 280–600 s, small tail of impatient ones
+function rollPatience() {
+  // Mixture: 5% low patience, 95% higher
+  if (Math.random() < 0.05) return rand(60, 280);
+  // skewed toward longer
+  const u = Math.random();
+  return Math.floor(300 + Math.pow(u, 0.6) * 400); // ~300–700
+}
+
+// Average / median floor reached (1–101)
+function rollFloorStats() {
+  // Most players clear mid-game; fewer reach high floors
+  const avg = Math.floor(15 + Math.pow(Math.random(), 0.7) * 75); // roughly 15–90
+  const median = clamp(avg + rand(-8, 5), 5, 100);
+  return { avgFloor: avg, medianFloor: median };
+}
+
+// ===================== PLAYER GENERATION =====================
+function chooseRole(possibleRoles, forcedRole = null) {
+  if (forcedRole && possibleRoles.includes(forcedRole)) return forcedRole;
+  const available = {};
+  possibleRoles.forEach(r => { available[r] = ROLE_WEIGHTS[r] || 10; });
+  return weightedPick(available);
+}
+
+function pickRegion() {
+  const bias = document.getElementById('regionBias').value;
+  if (bias !== 'random') return bias;
+  // Population-weighted
+  return weightedPick(regionPop);
+}
+
+function generatePlayer(forcedRegion = null, forcedRole = null, guild = null) {
+  const className = pick(Object.keys(CLASSES));
+  const possibleRoles = CLASSES[className];
+  const role = chooseRole(possibleRoles, forcedRole);
+  const region = forcedRegion || pickRegion();
+  const elo = rand(500, 2000);
+  const level = rand(100, 150);
+  const floors = rollFloorStats();
+
+  return {
+    id: nextPlayerId++,
+    name: `P${String(nextPlayerId - 1).padStart(4, '0')}`,
+    elo, level, region, role,
+    class: className,
+    guild: guild || null,
+    joinedAt: simTime,
+    matchesPlayed: rand(5, 420),
+    abandonRate: +(Math.random() * 0.18).toFixed(3),
+    kickRate: +(Math.random() * 0.12).toFixed(3),
+    kickedRate: +(Math.random() * 0.15).toFixed(3),
+    patience: rollPatience(),
+    avgFloor: floors.avgFloor,
+    medianFloor: floors.medianFloor,
+    isPremade: !!guild
+  };
+}
+
+function generatePremade(size) {
+  const guild = pick(GUILD_NAMES) + ' ' + String.fromCharCode(65 + rand(0, 25));
+  const region = pickRegion();
+  const rolesNeeded = [];
+  if (size >= 1) rolesNeeded.push('tank');
+  if (size >= 2) rolesNeeded.push('healer');
+  while (rolesNeeded.length < size) rolesNeeded.push(null);
+
+  const members = [];
+  for (let i = 0; i < size; i++) {
+    members.push(generatePlayer(region, rolesNeeded[i], guild));
+  }
+  return {
+    type: 'group',
+    id: 'G' + Date.now() + rand(0, 999),
+    guild, members, region,
+    joinedAt: simTime,
+    size
+  };
+}
+
+function addToQueue(item) {
+  queue.push(item);
+  renderQueue();
+  updateStats();
+}
+
+// ===================== AUTO SPAWN =====================
+function tickRegionPops() {
+  // Mild random walk of populations
+  for (const r of REGIONS) {
+    const delta = rand(-40, 40);
+    regionPop[r] = clamp(regionPop[r] + delta, 250, 6000);
+  }
+}
+
+function autoGenerate() {
+  if (!autoSpawn) return;
+  // Target ~50 concurrent “looking” across a 3000-player server → scale by pop
+  // Inject a few players per second total
+  const totalPop = Object.values(regionPop).reduce((a, b) => a + b, 0);
+  const baseRate = totalPop / 3000 * 1.8; // ~1.8 players/sec at 3k average
+  const n = Math.max(0, Math.round(baseRate + randf(-0.6, 0.8)));
+
+  for (let i = 0; i < n; i++) {
+    // ~12% chance of a small premade
+    if (Math.random() < 0.12) {
+      addToQueue(generatePremade(rand(2, 3)));
+    } else {
+      addToQueue(generatePlayer());
+    }
+  }
+  document.getElementById('statAuto').textContent = `~${baseRate.toFixed(1)}/s`;
+}
+
+// ===================== RENDERING =====================
+function renderPlayerCard(p) {
+  const elapsed = simTime - p.joinedAt;
+  const patienceLeft = p.patience - elapsed;
+  const patienceClass = patienceLeft < 45 ? 'patience-low' : '';
+  return `
+    <div class="player-card" data-id="${p.id}">
+      <div class="player-top">
+        <span class="player-name">${p.name}${p.guild ? ' <span style="color:#c084fc">[' + p.guild + ']</span>' : ''}</span>
+        <span class="elo">${p.elo}</span>
+      </div>
+      <div class="tags">
+        <span class="tag role-${p.role}">${p.role.toUpperCase()}</span>
+        <span class="tag class">${p.class}</span>
+        <span class="tag region">${p.region}</span>
+        <span class="tag">Lv ${p.level}</span>
+      </div>
+      <div class="stats-mini">
+        Floor avg ${p.avgFloor} / med ${p.medianFloor} · Pat ${p.patience}s
+        · Abd ${(p.abandonRate * 100).toFixed(0)}% · Kick ${(p.kickRate * 100).toFixed(0)}%
+      </div>
+      <div class="queue-time ${patienceClass}">⏱ ${formatElapsed(elapsed)} (pat left ~${Math.max(0, patienceLeft)}s)</div>
+    </div>
+  `;
+}
+
+function renderQueue() {
+  const list = document.getElementById('queueList');
+  let totalPlayers = 0;
+  queue.forEach(item => { totalPlayers += item.type === 'group' ? item.members.length : 1; });
+  document.getElementById('queueCount').textContent = totalPlayers;
+
+  if (queue.length === 0) {
+    list.innerHTML = '<div class="empty">Queue is empty.</div>';
+    return;
+  }
+
+  const sorted = [...queue].sort((a, b) => a.joinedAt - b.joinedAt);
+  list.innerHTML = sorted.map(item => {
+    if (item.type === 'group') {
+      const elapsed = simTime - item.joinedAt;
+      return `
+        <div class="player-card" style="border-left: 3px solid #a855f7">
+          <div class="player-top">
+            <span class="player-name">👥 ${item.guild} (${item.size})</span>
+            <span class="queue-time">${formatElapsed(elapsed)}</span>
+          </div>
+          <div style="margin-top:4px">
+            ${item.members.map(m => `
+              <div style="font-size:0.75rem;padding:2px 0;display:flex;justify-content:space-between">
+                <span>${m.name} <span class="tag role-${m.role}">${m.role}</span></span>
+                <span class="elo">${m.elo}</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+    return renderPlayerCard(item);
+  }).join('');
+}
+
+function renderMatches() {
+  const list = document.getElementById('matchList');
+  document.getElementById('matchCount').textContent = matches.length;
+  if (matches.length === 0) {
+    list.innerHTML = '<div class="empty">No matches yet.</div>';
+    return;
+  }
+  list.innerHTML = [...matches].reverse().slice(0, 40).map(m => {
+    const qClass = m.quality >= 0.75 ? 'quality-high' : m.quality >= 0.45 ? 'quality-med' : 'quality-low';
+    const rc = roleCount(m.players);
+    return `
+      <div class="match-group">
+        <div class="match-header">
+          <span>#${m.id} · ${m.region}${m.cross ? ' (cross)' : ''} · ${m.players.length}p</span>
+          <span class="${qClass}">${(m.quality * 100).toFixed(0)}%</span>
+        </div>
+        <div class="match-stats">
+          <span>T${rc.tank} H${rc.healer} D${rc.dps}</span>
+          <span>ELO Δ${m.eloGap}</span>
+          <span>Lvl Δ${m.levelGap}</span>
+          <span>Wait ${formatElapsed(m.avgWait)}</span>
+        </div>
+        <div class="match-players">
+          ${m.players.map(p => `
+            <div class="match-player">
+              <div style="display:flex;justify-content:space-between">
+                <strong>${p.name}</strong><span class="elo">${p.elo}</span>
+              </div>
+              <div style="font-size:0.7rem;color:var(--muted)">
+                <span class="tag role-${p.role}">${p.role}</span> ${p.class} Lv${p.level}
+                ${p.guild ? '· ' + p.guild : ''}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function updateStats() {
+  let q = 0;
+  queue.forEach(i => q += i.type === 'group' ? i.members.length : 1);
+  document.getElementById('statQueue').textContent = q;
+  document.getElementById('statMatches').textContent = matches.length;
+  document.getElementById('statAbandoned').textContent = abandonedCount;
+  document.getElementById('statPops').textContent =
+    REGIONS.map(r => `${r}:${regionPop[r]}`).join(' ');
+}
+
+// ===================== MATCHMAKING =====================
+function getParams() {
+  return {
+    partyMin: +document.getElementById('partyMin').value,
+    partyMax: +document.getElementById('partyMax').value,
+    tankMin: +document.getElementById('tankMin').value,
+    tankIdeal: +document.getElementById('tankIdeal').value,
+    healMin: +document.getElementById('healMin').value,
+    healIdeal: +document.getElementById('healIdeal').value,
+    dpsMin: +document.getElementById('dpsMin').value,
+    dpsIdeal: +document.getElementById('dpsIdeal').value,
+    lvlIdeal: +document.getElementById('lvlIdeal').value,
+    lvlMax: +document.getElementById('lvlMax').value,
+    eloIdeal: +document.getElementById('eloIdeal').value,
+    eloMax: +document.getElementById('eloMax').value,
+    idealWait: +document.getElementById('idealWait').value,
+    yoloWait: +document.getElementById('yoloWait').value,
+    crossPlayAfter: +document.getElementById('crossPlayAfter').value
+  };
+}
+
+function flattenQueue() {
+  const flat = [];
+  queue.forEach(item => {
+    if (item.type === 'group') {
+      item.members.forEach(m => flat.push({ player: m, groupId: item.id, groupSize: item.size, group: item }));
+    } else {
+      flat.push({ player: item, groupId: null, groupSize: 1, group: null });
+    }
+  });
+  return flat;
+}
+
+function calculateTolerance(waitSec, params) {
+  return clamp((waitSec - params.idealWait) / (Math.max(1, params.yoloWait - params.idealWait)), 0, 1);
+}
+
+function roleCount(players) {
+  const c = { tank: 0, dps: 0, healer: 0 };
+  players.forEach(p => c[p.role]++);
+  return c;
+}
+
+function regionsCompatible(r1, r2, waitSec, params) {
+  if (r1 === r2) return true;
+  if (waitSec < params.crossPlayAfter) return false;
+  const allowed = CROSS_PLAY_PAIRS[r1] || [];
+  return allowed.includes(r2);
+}
+
+function tryFormMatch(seedEntry, candidates, params) {
+  const seedPlayers = seedEntry.group ? seedEntry.group.members : [seedEntry.player];
+  const seedRegion = seedPlayers[0].region;
+  const wait = simTime - (seedEntry.group ? seedEntry.group.joinedAt : seedEntry.player.joinedAt);
+  const tol = calculateTolerance(wait, params);
+
+  const maxElo = params.eloIdeal + tol * (params.eloMax - params.eloIdeal);
+  const maxLvl = params.lvlIdeal + tol * (params.lvlMax - params.lvlIdeal);
+
+  // Dynamic role targets: start at ideal, relax toward configured min (which can be 0)
+  const targetTank = Math.round(params.tankIdeal - tol * (params.tankIdeal - params.tankMin));
+  const targetHeal = Math.round(params.healIdeal - tol * (params.healIdeal - params.healMin));
+  const midSize = Math.round((params.partyMin + params.partyMax) / 2);
+  const idealDpsFromPct = Math.round(midSize * 0.75);
+  const baseDpsIdeal = Math.max(params.dpsIdeal, idealDpsFromPct);
+  const targetDps = Math.round(baseDpsIdeal - tol * (baseDpsIdeal - params.dpsMin));
+
+  let desiredSize = clamp(targetTank + targetHeal + targetDps, params.partyMin, params.partyMax);
+  const minAcceptableSize = Math.round(params.partyMin + (1 - tol) * (desiredSize - params.partyMin));
+
+  if (seedPlayers.length > params.partyMax) return null;
+
+  let team = [...seedPlayers];
+  let usedGroups = new Set(seedEntry.groupId ? [seedEntry.groupId] : []);
+  let usedPlayers = new Set(seedPlayers.map(p => p.id));
+  let cross = false;
+
+  const seedElo = seedPlayers.reduce((s, p) => s + p.elo, 0) / seedPlayers.length;
+  const seedLvl = seedPlayers.reduce((s, p) => s + p.level, 0) / seedPlayers.length;
+
+  // Count current scarce resources in whole queue (for conservation)
+  const allFlat = candidates;
+  const queueTanks = allFlat.filter(c => c.player.role === 'tank' && !usedPlayers.has(c.player.id)).length;
+  const queueHeals = allFlat.filter(c => c.player.role === 'healer' && !usedPlayers.has(c.player.id)).length;
+
+  const pool = candidates.filter(c => {
+    if (usedPlayers.has(c.player.id)) return false;
+    if (!regionsCompatible(seedRegion, c.player.region, wait, params)) return false;
+    if (Math.abs(c.player.elo - seedElo) > maxElo * 1.6) return false;
+    if (Math.abs(c.player.level - seedLvl) > maxLvl * 1.6) return false;
+    return true;
+  });
+
+  function canAddGroup(g) {
+    if (usedGroups.has(g.id)) return false;
+    if (team.length + g.members.length > params.partyMax) return false;
+    return g.members.every(m =>
+      regionsCompatible(seedRegion, m.region, wait, params) &&
+      Math.abs(m.elo - seedElo) <= maxElo &&
+      Math.abs(m.level - seedLvl) <= maxLvl
+    );
+  }
+
+  // Greedy fill with scarcity awareness
+  while (team.length < desiredSize) {
+    const counts = roleCount(team);
+    const needTank = counts.tank < targetTank;
+    const needHeal = counts.healer < targetHeal;
+    const needDps  = counts.dps  < targetDps;
+
+    // When tanks are extremely scarce and tolerance is still low, be more reluctant to take the last tanks
+    const tankScarcity = queueTanks <= 2 && tol < 0.55;
+
+    let best = null;
+    let bestScore = -Infinity;
+
+    for (const c of pool) {
+      if (usedPlayers.has(c.player.id)) continue;
+
+      if (c.groupId) {
+        if (!canAddGroup(c.group)) continue;
+        let score = 0;
+        c.group.members.forEach(gp => {
+          let roleBonus = 0;
+          if (gp.role === 'tank' && needTank) roleBonus = tankScarcity ? 18 : 38;
+          else if (gp.role === 'healer' && needHeal) roleBonus = 36;
+          else if (gp.role === 'dps' && needDps) roleBonus = 24;
+          else if (gp.role === 'dps') roleBonus = 8; // still useful filler
+          const eloFit = 1 - Math.abs(gp.elo - seedElo) / (maxElo || 1);
+          const lvlFit = 1 - Math.abs(gp.level - seedLvl) / (maxLvl || 1);
+          score += roleBonus + eloFit * 10 + lvlFit * 5;
+        });
+        score += c.group.members.length * 5;
+        if (score > bestScore) {
+          bestScore = score;
+          best = { type: 'group', group: c.group };
+        }
+      } else {
+        const p = c.player;
+        if (Math.abs(p.elo - seedElo) > maxElo) continue;
+        if (Math.abs(p.level - seedLvl) > maxLvl) continue;
+        if (team.length + 1 > params.partyMax) continue;
+
+        let roleBonus = 0;
+        if (p.role === 'tank' && needTank) roleBonus = tankScarcity ? 22 : 48;
+        else if (p.role === 'healer' && needHeal) roleBonus = 46;
+        else if (p.role === 'dps' && needDps) roleBonus = 30;
+        else if (p.role === 'dps') roleBonus = 10;
+        // Strongly prefer long-waiting players
+        const waitBonus = (simTime - p.joinedAt) * 0.07;
+        const eloFit = 1 - Math.abs(p.elo - seedElo) / (maxElo || 1);
+        const lvlFit = 1 - Math.abs(p.level - seedLvl) / (maxLvl || 1);
+        const score = roleBonus + waitBonus + eloFit * 14 + lvlFit * 7;
+
+        if (score > bestScore) {
+          bestScore = score;
+          best = { type: 'solo', player: p };
+        }
+      }
+    }
+
+    if (!best) break;
+
+    if (best.type === 'group') {
+      best.group.members.forEach(m => {
+        team.push(m);
+        usedPlayers.add(m.id);
+        if (m.region !== seedRegion) cross = true;
+      });
+      usedGroups.add(best.group.id);
+    } else {
+      team.push(best.player);
+      usedPlayers.add(best.player.id);
+      if (best.player.region !== seedRegion) cross = true;
+    }
+  }
+
+  const finalCounts = roleCount(team);
+  const sizeOk = team.length >= params.partyMin && team.length <= params.partyMax;
+
+  // Effective minimums relax with tolerance (already reflected in target* but we still enforce configured floor)
+  const effTankMin = params.tankMin;
+  const effHealMin = params.healMin;
+  const effDpsMin  = params.dpsMin;
+
+  const minRolesOk =
+    finalCounts.tank >= effTankMin &&
+    finalCounts.healer >= effHealMin &&
+    finalCounts.dps >= effDpsMin;
+
+  if (!sizeOk || !minRolesOk) return null;
+  if (tol < 0.65 && team.length < minAcceptableSize) return null;
+
+  // Quality
+  const elos = team.map(p => p.elo);
+  const lvls = team.map(p => p.level);
+  const waits = team.map(p => simTime - p.joinedAt);
+  const eloGap = Math.max(...elos) - Math.min(...elos);
+  const levelGap = Math.max(...lvls) - Math.min(...lvls);
+  const avgWait = Math.round(waits.reduce((a, b) => a + b, 0) / waits.length);
+
+  const eloScore = 1 - clamp(eloGap / (params.eloMax || 1), 0, 1);
+  const lvlScore = 1 - clamp(levelGap / (params.lvlMax || 1), 0, 1);
+  const roleScore =
+    (finalCounts.tank >= params.tankIdeal ? 0.20 : finalCounts.tank >= 1 ? 0.10 : 0.02) +
+    (finalCounts.healer >= params.healIdeal ? 0.20 : finalCounts.healer >= 1 ? 0.10 : 0.02) +
+    (finalCounts.dps >= params.dpsIdeal ? 0.15 : finalCounts.dps >= params.dpsMin ? 0.08 : 0);
+  const sizeScore = clamp((team.length - params.partyMin) / (params.partyMax - params.partyMin || 1), 0, 1) * 0.12;
+  const waitPenalty = clamp(avgWait / params.yoloWait, 0, 0.22);
+  const crossPenalty = cross ? 0.04 : 0;
+  const quality = clamp(eloScore * 0.28 + lvlScore * 0.18 + roleScore + sizeScore + (0.12 - waitPenalty) - crossPenalty, 0, 1);
+
+  return {
+    players: team,
+    region: seedRegion,
+    cross,
+    eloGap, levelGap, avgWait, quality,
+    usedPlayerIds: [...usedPlayers],
+    usedGroupIds: [...usedGroups]
+  };
+}
+
+function runMatchmaking() {
+  if (queue.length === 0) return;
+  const params = getParams();
+  params.partyMin = clamp(params.partyMin, 3, 12);
+  params.partyMax = clamp(params.partyMax, params.partyMin, 12);
+
+  const flat = flattenQueue();
+  const byWait = [...flat].sort((a, b) => {
+    const wa = a.group ? a.group.joinedAt : a.player.joinedAt;
+    const wb = b.group ? b.group.joinedAt : b.player.joinedAt;
+    return wa - wb;
+  });
+
+  const formed = [];
+  const consumedPlayers = new Set();
+  const consumedGroups = new Set();
+
+  for (const seed of byWait) {
+    if (consumedPlayers.has(seed.player.id)) continue;
+    if (seed.groupId && consumedGroups.has(seed.groupId)) continue;
+
+    const result = tryFormMatch(seed, flat, params);
+    if (result && !result.usedPlayerIds.some(id => consumedPlayers.has(id))) {
+      formed.push(result);
+      result.usedPlayerIds.forEach(id => consumedPlayers.add(id));
+      result.usedGroupIds.forEach(id => consumedGroups.add(id));
+    }
+  }
+
+  if (formed.length) {
+    queue = queue.filter(item => {
+      if (item.type === 'group') return !consumedGroups.has(item.id);
+      return !consumedPlayers.has(item.id);
+    });
+    formed.forEach(f => {
+      matches.push({ id: nextMatchId++, ...f, createdAt: simTime });
+    });
+    renderQueue();
+    renderMatches();
+  }
+}
+
+function checkAbandons() {
+  const before = queue.length;
+  queue = queue.filter(item => {
+    if (item.type === 'group') {
+      // Premade leaves if any member (or the group clock) exceeds patience of the most impatient
+      const maxWait = simTime - item.joinedAt;
+      const minPat = Math.min(...item.members.map(m => m.patience));
+      if (maxWait > minPat) {
+        abandonedCount += item.members.length;
+        return false;
+      }
+      return true;
+    } else {
+      const elapsed = simTime - item.joinedAt;
+      if (elapsed > item.patience) {
+        abandonedCount++;
+        return false;
+      }
+      return true;
+    }
+  });
+  if (queue.length !== before) {
+    renderQueue();
+  }
+}
+
+// ===================== LOOP =====================
+function tick() {
+  simTime++;
+  document.getElementById('clock').textContent = formatTime(simTime);
+
+  if (simTime % 15 === 0) tickRegionPops();
+  autoGenerate();
+  checkAbandons();
+  renderQueue();
+  runMatchmaking();
+  updateStats();
+}
+
+function startSim() {
+  if (simRunning) return;
+  simRunning = true;
+  document.getElementById('btnStart').disabled = true;
+  document.getElementById('btnPause').disabled = false;
+  tickInterval = setInterval(tick, 1000);
+}
+function pauseSim() {
+  simRunning = false;
+  document.getElementById('btnStart').disabled = false;
+  document.getElementById('btnPause').disabled = true;
+  clearInterval(tickInterval);
+}
+function clearAll() {
+  pauseSim();
+  queue = [];
+  matches = [];
+  abandonedCount = 0;
+  simTime = 0;
+  document.getElementById('clock').textContent = '00:00:00';
+  renderQueue();
+  renderMatches();
+  updateStats();
+}
+function toggleAuto() {
+  autoSpawn = !autoSpawn;
+  const btn = document.getElementById('btnAuto');
+  btn.textContent = autoSpawn ? 'Auto: ON' : 'Auto: OFF';
+  btn.style.background = autoSpawn ? '#059669' : '';
+  if (!autoSpawn) document.getElementById('statAuto').textContent = 'off';
+}
+
+// ===================== EVENTS =====================
+document.getElementById('btnStart').addEventListener('click', startSim);
+document.getElementById('btnPause').addEventListener('click', pauseSim);
+document.getElementById('btnClear').addEventListener('click', clearAll);
+document.getElementById('btnAuto').addEventListener('click', toggleAuto);
+
+document.getElementById('btnAdd1').addEventListener('click', () => addToQueue(generatePlayer()));
+document.getElementById('btnAdd5').addEventListener('click', () => { for (let i = 0; i < 5; i++) addToQueue(generatePlayer()); });
+document.getElementById('btnAddPremade2').addEventListener('click', () => addToQueue(generatePremade(2)));
+document.getElementById('btnAddPremade3').addEventListener('click', () => addToQueue(generatePremade(3)));
+document.getElementById('btnAddPremade4').addEventListener('click', () => addToQueue(generatePremade(4)));
+document.getElementById('btnFlood').addEventListener('click', () => {
+  for (let i = 0; i < 16; i++) addToQueue(generatePlayer());
+  addToQueue(generatePremade(2));
+  addToQueue(generatePremade(3));
+});
+
+renderQueue();
+renderMatches();
+updateStats();
+</script>
+</body>
+</html>
